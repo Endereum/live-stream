@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IPFS Streaming</title>
+
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+    <div id="container" class="container">
+        <div class="page-header text-center">
+          <h1>Secure and Decentralized Live Streaming using Blockchain and IPFS</h1>
+          <small>By REVOtic Engineering</small>
+          
+        </div>
+        <div class="row text-center">
+            <video id="gum" width="500" height="500" playsinline autoplay muted style="border-width: 1px; border-color:black; border-style: solid;"></video>
+        </div>
+        <div class="row">
+          <div class="col-md-4"></div>
+          <button id="start" class="btn btn-primary col-md-4">Start camera</button>
+          
+          <button id="play" disabled class="invisible">Play</button>
+          <button id="download" disabled class="invisible">Download</button>
+        </div>
+        <div class="row">
+          <div class="col-md-4"></div>
+          <button id="record" disabled class="btn btn-success col-md-4">Start Recording</button>
+        </div>
+
+        <div class="invisible">
+            <h4>Media Stream Constraints options</h4>
+            <p>Echo cancellation: <input type="checkbox" id="echoCancellation"></p>
+        </div>
+        <div>
+            <span id="errorMsg"></span>
+        </div>
+    </div>
+
+    <script type="text/javascript" src="/main.js" async></script>
+
+    <!-- include adapter for srcObject shim -->
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+
+    <!-- socket.io cdn -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.3/socket.io.js"></script>
+
+
+</body>
+
+</html>
+
+<style type="text/css">
+    button {
+      margin: 0 3px 10px 0;
+      /*padding-left: 2px;*/
+      /*padding-right: 2px;*/
+      /*width: 99px;*/
+      font-size: 26px !important;
+    }
+
+
+/*    button:last-of-type {
+      margin: 0;
+    }*/
+/*
+    p.borderBelow {
+      margin: 0 0 20px 0;
+      padding: 0 0 20px 0;
+    }*/
+
+    video {
+      /*vertical-align: top;*/
+      /*--width: 25vw;*/
+      /*width: var(--width);*/
+      /*height: calc(var(--width) * 0.5625);*/
+    }
+
+/*    video:last-of-type {
+      margin: 0 0 20px 0;
+    }*/
+
+/*    video#gumVideo {
+      margin: 0 20px 20px 0;
+    }*/
+</style>

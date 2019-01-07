@@ -3,24 +3,20 @@
 // IPFS API
 const IPFS = require('ipfs')
 
-// Create IPFS node with pubsub = true
-const node = new IPFS({
-    EXPERIMENTAL: {
-    pubsub: true
-  }
-});
 
 // Websocket for recieving video chunks
-const WebSocket = require('ws');
+// const WebSocket = require('ws');
 
-// Create a socket 
-const wss = new WebSocket.Server({ port: 8000 });
+
+// Create a socket for chunks
+// const wss = new WebSocket.Server({ port: 8000 });
+
+// for sending hash
+// const hashSocket = new WebSocket.Server({ port: 8082 });
+
 
 // Filesystem
 var fs = require('fs');
-
-// Lockfile library to lock master.m3u8
-var lockFile = require('lockfile');
 
 // Child Pocess Creation
 var spawn = require('child_process').spawn;
@@ -28,28 +24,87 @@ var exec = require('child_process').exec;
 var execSync = require('child_process').execSync;
 
 
-// once the server is ready
-node.on('ready', () => {
-    console.log("IPFS ready", node.id)
-})
+// var express = require('express');
+// var app = require('express')();
+// var server = require('http').Server(app);
+// var io = require('socket.io')(server);
 
+// server.listen(8081);
+
+var app = require('express')();
+var server = app.listen(8081);
+var io = require('socket.io').listen(server);
+
+console.log("Server ready");
+
+// const app = express();
+// const socketIO = require('socket.io');
+
+// const server = express()
+//   .use(app)
+//   .listen(8081, () => console.log(`Listening Socket on ${ 8081 }`));
+
+// const io = socketIO(server);
+
+
+var __dirname = "./media_subscriber";
+
+app.get('/', function (req, res) {
+  res.sendFile('/index.html', {root: __dirname});
+});
+
+app.get('/main.js', function (req, res) {
+  res.sendFile('/main.js', {root: __dirname});
+});
+
+app.get('/subscriber.js', function (req, res) {
+  res.sendFile('/subscriber.js', {root: __dirname});
+});
+
+app.get('/player', function (req, res) {
+  res.sendFile('/static.html', {root: __dirname});
+});
 
 // Variable to hold the name and directory structure
 // dir holds the path for temp_folder
 // hash holds the hash of newly added content
 // pinCommand holdes the string for adding content to ipfs in child node
-let dir, hash, pinCommand;
-
-// Topic for the pubsub to publish the new hash
-const topic = "newHash";
+let dir, hash, pinCommand, number;
 
 
-// Socket Connection
-wss.on('connection', function connection(ws) {
-    // On receiving the message
-    ws.on('message', function incoming(message) {
-        // Make  an empty folder and add it to ipfs, create the ipns for it
+// let hs = hashSocket.on('connection', function connection(hSocket) {
+//     console.log("hashSocket ready");
+//     hSocket.send("Test");
+
+//     hashSocket.on("hash", function(data){
+//         hSocket.send(data);
+//     });
+// });
+
+var hash_room;
+
+// handle incoming connections from clients
+io.sockets.on('connection', function(socket) {
+  
+  socket.on('room', function(room) {
+    socket.join(room);
+  });
+
+  socket.on('room_for_hash', function(room) {
+    hash_room = room+"_hash";
+    socket.join(hash_room);
+  });
+
+  socket.on("list_rooms", function(id){
+    console.log("Listing rooms for "+id);
+    io.sockets.emit('rooms_available', io.sockets.adapter.rooms);
+
+  });
+
+  socket.on('chunk', function(message) {
         if(message == "init"){
+
+            number = 0;
             
             // Current date to name the file uniquely
             var dateNow = new Date();
@@ -57,7 +112,7 @@ wss.on('connection', function connection(ws) {
             var timeShot = dateNow.getTime();
 
             // Create a directory with this name
-            dir = './temp_folder/tmp' + timeShot
+            dir = './media_publisher/temp_folder/tmp' + timeShot
             // var dirPath = '/temp_folder/tmp' + timeShot
             
 
@@ -69,56 +124,32 @@ wss.on('connection', function connection(ws) {
                     }    
                 });
             }
-
-            // Add a master.m3u8 file, empty
-            fs.writeFile(dir+"/master.m3u8", "#EXTM3U\n", function(err) {
-                if(err) {
-                    return console.log(err);
-                }
-
-
-                console.log("The file was saved!");
-
-                pinCommand = 'ipfs add -Qr '+dir;
-
-    	       // Add this folder to IPFS
-                var addEmptyFolder = execSync(pinCommand);
-
-    	        // console.log(hash.toString);
-                // console.log(node.pubsub);
-
-                // const topic = 'fruit-of-the-day';
-                // const msg = Buffer.from('banana');
-
-                // node.pubsub.publish(topic, msg, (err) => {
-                //   if (err) {
-                //     return console.error(`failed to publish to ${topic}`, err)
-                //   }
-                //   // msg was broadcasted
-                //   console.log(`published to ${topic}`)
-                // })
-
-
-                // Publish the hash to pubsub topic "newHash"
-                node.pubsub.publish(topic, new node.types.Buffer('banana'));
-
-        		// node.pubsub.publish(topic, hash, (err) =>{
-        		// 	if(err){
-        		// 		return console.log(err);			
-          //           }
-          //           console.log("published");
-        		// })	
-                
-    	    });             
-        }else{
+       }
+        else{
+            number++;
+            
+            console.log("Recieved Data")
             // Current date to name the file uniquely
             var dateNow = new Date();
 
+            var folder = dir + "/chunk_"+dateNow.getTime();
+            pinCommand = 'ipfs add -r '+folder;
+            if (!fs.existsSync(folder)){
+                fs.mkdirSync(folder, function(err){
+                    if (err) {
+                        console.log('failed to create directory', err);
+                    }else{
+                                    
+                        console.log('create directory', folder);
+                    }    
+                });
+            }
+
             // Name of the master file
-            var fileName = dateNow.getTime()+".m3u8";
-            var finalName = dir+"/"+fileName;
+            // var fileName = dateNow.getTime()+".m3u8";
+            var fileName = dateNow.getTime() + "master.m3u8";
+            var finalName = folder+"/"+fileName;
             
-            console.log("Name it ", fileName);
 
             // Args for HLS conversion
             var args = [
@@ -136,7 +167,6 @@ wss.on('connection', function connection(ws) {
             // Spawn the child process with ffmpeg and args
             const proc = spawn('ffmpeg', args);
 
-            console.log("Spawn");
 
             // Write the incoming chunk to the proc
             proc.stdin.write(message);
@@ -147,55 +177,24 @@ wss.on('connection', function connection(ws) {
             // If FFmpeg stops for any reason, close the child_process.
             proc.on('close', (code, signal) => {
                 console.log('FFmpeg child process closed, code ' + code + ', signal ' + signal);
-                
-
-                // lock the master
-                lockFile.lock(dir+"/master.m3u8.lock", function(er){
-                    // Write the filename name to master.m3u8 
-                    console.log("Write the filename name to master.m3u8 ");
-
-                    var wstream = fs.createWriteStream(dir+"/master.m3u8", {'flags': 'a'});
+                try{
+                    // console.log("Add to IPFS");
+                    var addNewContent = execSync(pinCommand);                            
                     
-                    wstream.write("#EXT-X-STREAM-INF:BANDWIDTH=150000\n"+fileName+"\n");
-                    
-                    console.log("End writing");
-                    wstream.end();
+                    var hashString = addNewContent.toString();
 
-                    
-                    // On finish writing stream
-                    wstream.on('finish', function(){
-                        // Add this folder to ipfs
-                        try{
-                            console.log("Add to IPFS");
-                            var addNewContent = execSync(pinCommand);                            
-                            
-                            hash = addNewContent;
-                                                            
-                            console.log("Send this hash: "+hash);
-                                         
-                            // publish to topic                   
-                            console.log("publish to topic");
-                            // node.pubsub.publish(topic, hash, (err) =>{
-                            //     if(err){
-                            //         console.log(err);           
-                            //     }
-                            //     console.log("published");
-                            // })
+                    hash = hashString.split("\n")[2].split(" ")[1]
 
-                            node.pubsub.publish(topic, new node.types.Buffer('banana'))
-                        }catch(e){
-                            console.log(e.stdout);
-                        }
+                                                    
+                    console.log("Send this hash: "+ hash);
+
+
+                    io.sockets.in(hash_room).emit('hash', {'hash': hash.trim(), "master_name": fileName, "sequence_number": number});
+
+                }catch(e){
+                    console.log(e);
+                }
     
-                        lockFile.unlock(dir+"/master.m3u8.lock", function(err){
-                            // unlocked;
-                            console.log("unlock master");
-                        })
-                    })
-                     
-                });
-
-
 
             });
 
@@ -210,5 +209,6 @@ wss.on('connection', function connection(ws) {
 
                
         }
-    });
+  });
 });
+
